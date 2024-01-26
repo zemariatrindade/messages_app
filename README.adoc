@@ -1,0 +1,48 @@
+Our client, Super Sandwiches (a company with lots of restaurants specialized in preparing delicious sandwiches) has hired our company to analyze the user reviews  they receive thorough various channels. They want to have a central repository of reviews and they want to be able to access the reviews by date (specifying a date from and date to) or just accessing all unprocessed messages.
+
+As part of the project team you need to create 3 scripts with the following specifications.
+
+**ingestion.py**
+
+* The script accepts one parameter, a file name containing messages to ingest
+* The file is in csv format (with headers) and has three columns: timestamp, uuid, message
+* The script should check if table raw_messages (with the suitable schema to store the information in the files) exist and if it doesn’t, it should create it. The table is in ddbb sup-san-reviews that should be created by the script if it does not exist.
+* The script has to insert all messages in the file specified as parameter in the raw_messages table
+* Existing messages in the table should be kept! After the ingestion we should have whatever was in the table before plus the new messages in the file.
+
+**process.py**
+
+This script is responsible of moving the data from table raw_messages to proc_messages. This table has the same fields as the previous one plus the following ones: category, num_lemm (number of lemmas) and num_char (number of characters)
+
+* We have three categories FOOD, SERVICE and GENERAL.
+* To assign the category we need to calculate a score for FOOD and SERVICE. We assign category SERVICE if number of service related lemmas is over food related lemmas (use categories from spacy)
+
+ 1) For each lemma in the message in the list of food lemmas, the FOOD score is incremented.
+ 2) The SERVICE score is incremented with each lemma belonging to the list of service lemmas and for every entity with label MONEY.
+
+- The list of food lemmas is: sandwich, bread, meat, cheese, ham, omelette, food, meal
+- The list of service lemmas is: waiter, service, table
+
+ 3) If there are no service or food related lemmas we assign category general
+
+* Only messages that have not been processed have to be read and inserted in the new table.
+We will use a control table (proc_log) to identify what messages have to be processed. This table has two fields: uuid and proc_time.
+The flow is the following:
+    1. We insert in the control table the uuids that are in the raw messages table but not in the control table (we leave the time field empty)
+    2. We read all messages that exist in the control table but have an empty time field. We process them, calculate the new fields and insert them in the processed table proc_messages.
+    3. We update the fields in the control table proc_log with empty time field: we will the time field with the current timestamp.
+
+**read.py**
+
+This script should accept a date as a parameter and should produce a json messages.json) with all processed messages (all fields) with a date greater or equal to the one specified as a parameter. The schema of the json is:
+
+```
+{num: number of messages,
+    [{uuid: …
+      timestamp: …
+      REST OF FIELDS IN TABLE
+     }
+     …
+    ]
+}
+```
